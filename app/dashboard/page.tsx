@@ -6,18 +6,27 @@ import Link from "next/link"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+
 import WeatherDisplay from "@/components/weather-display"
 import OutfitRecommendations from "@/components/outfit-recommendations"
 import { fetchWeather } from "@/lib/weather"
 
 export default function Dashboard() {
   const [city, setCity] = useState("")
+  const [startDate, setStartDate] = useState("")
+  const [endDate, setEndDate] = useState("")
   const [loading, setLoading] = useState(false)
   const [weatherData, setWeatherData] = useState(null)
   const [luggageSize, setLuggageSize] = useState("backpack")
   const [style, setStyle] = useState("casual")
-  const [unit, setUnit] = useState("fahrenheit")
+  const [unit, setUnit] = useState<"fahrenheit" | "celsius">("fahrenheit")
 
   const handleGetForecast = async () => {
     if (!city.trim()) return
@@ -50,14 +59,30 @@ export default function Dashboard() {
         <div className="mb-8 rounded-xl bg-white p-6 shadow-sm">
           <h2 className="mb-4 text-2xl font-semibold">Weather + Outfit Planner</h2>
 
-          <div className="flex flex-col gap-4 sm:flex-row">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
             <Input
               placeholder="Enter city name"
               value={city}
               onChange={(e) => setCity(e.target.value)}
               className="flex-1"
             />
-            <Button onClick={handleGetForecast} disabled={loading || !city.trim()} className="whitespace-nowrap">
+            <Input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="sm:w-[170px]"
+            />
+            <Input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="sm:w-[170px]"
+            />
+            <Button
+              onClick={handleGetForecast}
+              disabled={loading || !city.trim()}
+              className="whitespace-nowrap"
+            >
               {loading ? "Loading..." : "Get Forecast"}
             </Button>
           </div>
@@ -66,14 +91,21 @@ export default function Dashboard() {
         {weatherData && (
           <>
             <div className="mb-8 grid gap-6 md:grid-cols-2">
-              {/* Weather Display */}
-              <WeatherDisplay weatherData={weatherData} unit={unit} setUnit={setUnit} />
+              <WeatherDisplay
+                weatherData={weatherData}
+                unit={unit}
+                setUnit={setUnit}
+                startDate={startDate}
+                endDate={endDate}
+              />
 
-              {/* Outfit Recommendations */}
-              <OutfitRecommendations weatherData={weatherData} luggageSize={luggageSize} style={style} />
+              <OutfitRecommendations
+                weatherData={weatherData}
+                luggageSize={luggageSize}
+                style={style}
+              />
             </div>
 
-            {/* Preferences */}
             <div className="rounded-xl bg-white p-6 shadow-sm">
               <h3 className="mb-4 text-lg font-medium">Travel Preferences</h3>
               <div className="grid gap-4 sm:grid-cols-2">

@@ -1,72 +1,92 @@
 "use client"
 
-import { Sun, Cloud, CloudRain, CloudSnow, CloudLightning, Wind } from "lucide-react"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useEffect, useState } from "react"
 
 interface WeatherDisplayProps {
   weatherData: any
-  unit: string
-  setUnit: (unit: string) => void
+  unit: "fahrenheit" | "celsius"
+  setUnit: (unit: "fahrenheit" | "celsius") => void
+  startDate: string
+  endDate: string
 }
 
-export default function WeatherDisplay({ weatherData, unit, setUnit }: WeatherDisplayProps) {
-  if (!weatherData) return null
+export default function WeatherDisplay({
+  weatherData,
+  unit,
+  setUnit,
+  startDate,
+  endDate,
+}: WeatherDisplayProps) {
+  const [dailyForecast, setDailyForecast] = useState<any[]>([])
 
-  const getWeatherIcon = (condition: string) => {
-    const conditionLower = condition.toLowerCase()
-    if (conditionLower.includes("clear") || conditionLower.includes("sun"))
-      return <Sun className="h-12 w-12 text-yellow-500" />
-    if (conditionLower.includes("rain")) return <CloudRain className="h-12 w-12 text-blue-500" />
-    if (conditionLower.includes("snow")) return <CloudSnow className="h-12 w-12 text-blue-200" />
-    if (conditionLower.includes("thunder") || conditionLower.includes("lightning"))
-      return <CloudLightning className="h-12 w-12 text-purple-500" />
-    if (conditionLower.includes("wind")) return <Wind className="h-12 w-12 text-gray-500" />
-    return <Cloud className="h-12 w-12 text-gray-400" />
-  }
+  useEffect(() => {
+    if (!weatherData?.list || !Array.isArray(weatherData.list)) return
 
-  const tempF = Math.round(weatherData.main.temp)
-  const tempC = Math.round(((tempF - 32) * 5) / 9)
+    // Group forecast entries by date (YYYY-MM-DD)
+    const grouped: Record<string, any[]> = {}
+
+    weatherData.list.forEach((entry: any) => {
+      const date = entry.dt_txt.split(" ")[0]
+      if (!grouped[date]) grouped[date] = []
+      grouped[date].push(entry)
+    })
+
+    // Get one entry per day — prefer midday (~12:00)
+    const daily = Object.entries(grouped).map(([date, entries]: [string, any[]]) => {
+      const midday = entries.find((e) => e.dt_txt.includes("12:00:00")) || entries[0]
+      return { date, ...midday }
+    })
+
+    // Filter to only include selected travel dates
+    const filtered = daily.filter((day) => {
+      return day.date >= startDate && day.date <= endDate
+    })
+
+    setDailyForecast(filtered)
+  }, [weatherData, startDate, endDate])
 
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="flex items-center justify-between">
-          <span>Current Weather</span>
-          <Tabs value={unit} onValueChange={setUnit} className="w-auto">
-            <TabsList className="h-8">
-              <TabsTrigger value="fahrenheit" className="text-xs">
-                °F
-              </TabsTrigger>
-              <TabsTrigger value="celsius" className="text-xs">
-                °C
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-2xl font-bold">{unit === "fahrenheit" ? `${tempF}°F` : `${tempC}°C`}</h3>
-            <p className="text-gray-500">{weatherData.name}</p>
-            <p className="mt-1 text-sm capitalize">{weatherData.weather[0].description}</p>
-          </div>
-          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gray-100">
-            {getWeatherIcon(weatherData.weather[0].main)}
-          </div>
+    <div className="rounded-xl border bg-white p-6 shadow-sm">
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="text-lg font-semibold">Forecast</h3>
+        <div className="space-x-2">
+          <button
+            onClick={() => setUnit("fahrenheit")}
+            className={`px-2 py-1 rounded ${unit === "fahrenheit" ? "bg-black text-white" : "bg-gray-200"}`}
+          >
+            °F
+          </button>
+          <button
+            onClick={() => setUnit("celsius")}
+            className={`px-2 py-1 rounded ${unit === "celsius" ? "bg-black text-white" : "bg-gray-200"}`}
+          >
+            °C
+          </button>
         </div>
-        <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
-          <div className="rounded-md bg-gray-100 p-2">
-            <p className="text-gray-500">Humidity</p>
-            <p className="font-medium">{weatherData.main.humidity}%</p>
-          </div>
-          <div className="rounded-md bg-gray-100 p-2">
-            <p className="text-gray-500">Wind</p>
-            <p className="font-medium">{Math.round(weatherData.wind.speed)} mph</p>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+      </div>
+
+      {dailyForecast.length === 0 ? (
+        <p>No forecast data available.</p>
+      ) : (
+        <ul className="space-y-4">
+          {dailyForecast.map((day) => {
+            const tempF = Math.round(day.main.temp)
+            const temp =
+              unit === "fahrenheit"
+                ? `${tempF}°F`
+                : `${Math.round(((tempF - 32) * 5) / 9)}°C`
+            const weather = day.weather[0]?.main || "N/A"
+
+            return (
+              <li key={day.date} className="flex justify-between border-b pb-2">
+                <span className="font-medium">{day.date}</span>
+                <span>{weather}</span>
+                <span>{temp}</span>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </div>
   )
 }
