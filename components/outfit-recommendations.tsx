@@ -12,8 +12,9 @@ interface OutfitRecommendationsProps {
 export default function OutfitRecommendations({ weatherData, luggageSize, style }: OutfitRecommendationsProps) {
   if (!weatherData) return null
 
-  const tempF = Math.round(weatherData.main.temp)
-  const condition = weatherData.weather[0].main.toLowerCase()
+  const today = weatherData.list?.[0]
+  const tempF = Math.round(today?.main?.temp || 0)
+  const condition = today?.weather?.[0]?.main?.toLowerCase() || "unknown"
 
   // Generate outfit recommendations based on temperature, condition, and style
   const getOutfitRecommendations = () => {
