@@ -10,25 +10,55 @@ interface WeatherDisplayProps {
   endDate: string
 }
 
-function getClosestForecast(slots: any[], hour: number) {
-  return slots.reduce((prev, curr) => {
-    const currHour = new Date(curr.dt_txt).getHours()
-    const prevHour = new Date(prev.dt_txt).getHours()
-    return Math.abs(currHour - hour) < Math.abs(prevHour - hour) ? curr : prev
-  })
+// Helper to pick an emoji based on weather condition
+function getWeatherIcon(cond: string) {
+  if (cond.includes("rain")) return "🌧️"
+  if (cond.includes("cloud")) return "☁️"
+  if (cond.includes("snow")) return "❄️"
+  if (cond.includes("clear") || cond.includes("sun")) return "☀️"
+  if (cond.includes("fog")) return "🌫️"
+  if (cond.includes("storm")) return "⛈️"
+  return "🌈"
 }
 
-function getOutfitSuggestion({ temp, condition, wind }: { temp: number; condition: string; wind: number }, style: string) {
-  const layers = []
-  if (temp < 55) layers.push("Warm jacket or hoodie")
-  else if (temp < 68) layers.push("Light jacket or long sleeve")
-  else layers.push("T-shirt or short sleeve")
+function getAccessories({ condition, wind, temp }: { condition: string; wind: number; temp: number }) {
+  const acc: string[] = []
+  if (condition.includes("sun") || condition.includes("clear")) acc.push("Sunglasses", "Cap")
+  if (condition.includes("rain")) acc.push("Umbrella")
+  if (condition.includes("cloud")) acc.push("Cap")
+  if (wind > 10) acc.push("Windbreaker")
+  if (temp < 40) acc.push("Beanie")
+  return [...new Set(acc)]
+}
 
-  if (condition.includes("rain")) layers.push("Raincoat or umbrella")
-  if (condition.includes("cloud")) layers.push("Optional hat")
-  if (condition.includes("sun")) layers.push("Sunglasses/hat")
-  if (wind > 10) layers.push("Windbreaker")
-  return layers.join(", ")
+function buildOutfit({ temp, condition, wind }: { temp: number; condition: string; wind: number }) {
+  // Top
+  let top = ""
+  if (condition.includes("rain")) top = "Raincoat or warm jacket, Tee"
+  else if (temp < 55) top = "Warm jacket or hoodie, Tee"
+  else if (temp < 68) top = "Light jacket or long sleeve, Tee"
+  else top = "Tee or short sleeve"
+
+  // Bottom
+  let bottom = temp > 78 ? "Shorts" : "Jeans or pants"
+  // Shoes
+  let shoes = condition.includes("rain")
+    ? "Waterproof boots or sneakers"
+    : "Sneakers or boots"
+
+  // Accessories
+  const accessories = getAccessories({ condition, wind, temp })
+
+  return { top, bottom, shoes, accessories }
+}
+
+function summarizeDay(dayCond: string, nightCond: string) {
+  if (dayCond.includes("rain") && nightCond.includes("rain")) return "Mostly Rainy"
+  if (dayCond.includes("cloud") && nightCond.includes("cloud")) return "Cloudy"
+  if (dayCond.includes("clear") && nightCond.includes("clear")) return "Clear"
+  if (dayCond.includes("rain")) return "Rain in Day"
+  if (nightCond.includes("rain")) return "Rain at Night"
+  return "Mixed"
 }
 
 export default function WeatherDisplay({
@@ -64,9 +94,17 @@ export default function WeatherDisplay({
     `${Math.max(1, Math.ceil(numDays * 0.7))} tops`,
     `${Math.max(1, Math.ceil(numDays / 3))} bottoms`,
     `1 jacket/hoodie`,
-    hasRain ? "Raincoat or umbrella" : "",
+    hasRain ? "Raincoat" : "",
     "1–2 pair(s) of shoes",
   ].filter(Boolean)
+
+  function getClosestForecast(slots: any[], hour: number) {
+    return slots.reduce((prev, curr) => {
+      const currHour = new Date(curr.dt_txt).getHours()
+      const prevHour = new Date(prev.dt_txt).getHours()
+      return Math.abs(currHour - hour) < Math.abs(prevHour - hour) ? curr : prev
+    })
+  }
 
   return (
     <div className="grid gap-8 md:grid-cols-2">
@@ -93,8 +131,7 @@ export default function WeatherDisplay({
             </button>
           </div>
         </div>
-
-        <div className="space-y-4">
+        <div className="space-y-5">
           {days.map((date) => {
             const slots = dailySlots[date]
             const daySlot = getClosestForecast(slots, 14)
@@ -105,34 +142,56 @@ export default function WeatherDisplay({
             const nightTemp = isFahrenheit
               ? Math.round(nightSlot.main.temp)
               : Math.round(((nightSlot.main.temp - 32) * 5) / 9)
-            const dayCond = daySlot.weather[0]?.main || "N/A"
-            const nightCond = nightSlot.weather[0]?.main || "N/A"
+            const dayCond = daySlot.weather[0]?.main.toLowerCase() || "n/a"
+            const nightCond = nightSlot.weather[0]?.main.toLowerCase() || "n/a"
+            const wind = Math.max(daySlot.wind?.speed || 0, nightSlot.wind?.speed || 0)
 
-            // Outfit suggestion: combine both times for flexibility
-            const outfit = getOutfitSuggestion(
-              {
-                temp: Math.min(dayTemp, nightTemp),
-                condition: (dayCond + " " + nightCond).toLowerCase(),
-                wind: Math.max(daySlot.wind?.speed || 0, nightSlot.wind?.speed || 0),
-              },
-              "casual"
-            )
+            // For summary line/icon:
+            const summary = summarizeDay(dayCond, nightCond)
+            const icon = getWeatherIcon(dayCond + nightCond)
+
+            // Get outfit details as object
+            const outfit = buildOutfit({
+              temp: Math.min(dayTemp, nightTemp),
+              condition: `${dayCond} ${nightCond}`,
+              wind,
+            })
 
             return (
-              <div key={date}>
-                <div className="text-sm font-semibold text-gray-700 mb-1">{date}</div>
-                <div className="flex gap-3 items-center text-sm">
+              <div key={date} className="pb-2 border-b last:border-b-0">
+                <div className="text-sm font-semibold text-gray-700 mb-1">
+                  <span className="mr-1">{icon}</span>
+                  {date} <span className="ml-2 text-xs text-gray-500">{summary}</span>
+                </div>
+                <div className="flex gap-3 items-center text-sm mb-1">
                   <div>
                     <span className="text-xs text-gray-500">Day (2pm): </span>
-                    <span className="text-gray-700">{dayCond} {dayTemp}°{isFahrenheit ? "F" : "C"}</span>
+                    <span className="text-gray-700 capitalize">
+                      {daySlot.weather[0]?.main} {dayTemp}°{isFahrenheit ? "F" : "C"}
+                    </span>
                   </div>
                   <div>
                     <span className="text-xs text-gray-500">Night (8pm): </span>
-                    <span className="text-gray-700">{nightCond} {nightTemp}°{isFahrenheit ? "F" : "C"}</span>
+                    <span className="text-gray-700 capitalize">
+                      {nightSlot.weather[0]?.main} {nightTemp}°{isFahrenheit ? "F" : "C"}
+                    </span>
                   </div>
                 </div>
-                <div className="text-xs text-blue-700 mt-1">
-                  Outfit: <span className="font-medium">{outfit}</span>
+                <div className="mt-1 pl-1 text-sm leading-tight">
+                  <div>
+                    <span className="font-semibold">Top:</span> {outfit.top}
+                  </div>
+                  <div>
+                    <span className="font-semibold">Bottom:</span> {outfit.bottom}
+                  </div>
+                  <div>
+                    <span className="font-semibold">Shoes:</span> {outfit.shoes}
+                  </div>
+                  {outfit.accessories.length > 0 && (
+                    <div>
+                      <span className="font-semibold">Accessories:</span> {outfit.accessories.join(", ")}
+                    </div>
+                  )}
                 </div>
               </div>
             )
