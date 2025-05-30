@@ -9,6 +9,17 @@ import {
 import WeatherDisplay from "@/components/weather-display"
 import { fetchWeather } from "@/lib/weather"
 
+// Utility to format date to YYYY-MM-DD
+function getTodayDate() {
+  return new Date().toISOString().split("T")[0]
+}
+function addDays(dateString: string, days: number) {
+  if (!dateString) return ""
+  const date = new Date(dateString)
+  date.setDate(date.getDate() + days)
+  return date.toISOString().split("T")[0]
+}
+
 export default function Dashboard() {
   const [city, setCity] = useState("")
   const [startDate, setStartDate] = useState("")
@@ -17,8 +28,6 @@ export default function Dashboard() {
   const [weatherData, setWeatherData] = useState<any[]>([])
   const [luggageSize, setLuggageSize] = useState("small")
   const [unit, setUnit] = useState<"fahrenheit" | "celsius">("fahrenheit")
-
-  const getTodayDate = () => new Date().toISOString().split("T")[0]
 
   const handleGetForecast = async () => {
     if (!city.trim() || !startDate || !endDate) return
@@ -59,8 +68,13 @@ export default function Dashboard() {
               value={endDate}
               onChange={e => setEndDate(e.target.value)}
               min={startDate || getTodayDate()}
+              max={startDate ? addDays(startDate, 5) : ""}
               className="rounded-lg text-base"
             />
+          </div>
+          {/* Disclaimer about API limit */}
+          <div className="text-xs italic text-gray-500 mt-1">
+            Currently using free weather API that limits forecasts to 5 days ahead.
           </div>
           <Select value={luggageSize} onValueChange={setLuggageSize}>
             <SelectTrigger>
