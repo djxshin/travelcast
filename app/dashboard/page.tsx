@@ -1,6 +1,11 @@
 "use client"
 
 import { useState } from "react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select"
 import WeatherDisplay from "@/components/weather-display"
 import { fetchWeather } from "@/lib/weather"
 
@@ -8,10 +13,12 @@ export default function Dashboard() {
   const [city, setCity] = useState("")
   const [startDate, setStartDate] = useState("")
   const [endDate, setEndDate] = useState("")
-  const [weatherData, setWeatherData] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
-  const [unit, setUnit] = useState<"fahrenheit" | "celsius">("fahrenheit")
+  const [weatherData, setWeatherData] = useState<any[]>([])
   const [luggageSize, setLuggageSize] = useState("small")
+  const [unit, setUnit] = useState<"fahrenheit" | "celsius">("fahrenheit")
+
+  const getTodayDate = () => new Date().toISOString().split("T")[0]
 
   const handleGetForecast = async () => {
     if (!city.trim() || !startDate || !endDate) return
@@ -28,53 +35,64 @@ export default function Dashboard() {
   }
 
   return (
-    <main className="p-8 max-w-6xl mx-auto">
-      <h1 className="text-2xl font-bold mb-8">Weather + Outfit Planner</h1>
-      <div className="flex gap-2 mb-6 flex-wrap">
-        <input
-          value={city}
-          onChange={e => setCity(e.target.value)}
-          placeholder="Enter city"
-          className="border rounded px-3 py-2 w-44"
-        />
-        <input
-          type="date"
-          value={startDate}
-          onChange={e => setStartDate(e.target.value)}
-          className="border rounded px-3 py-2"
-        />
-        <input
-          type="date"
-          value={endDate}
-          onChange={e => setEndDate(e.target.value)}
-          className="border rounded px-3 py-2"
-        />
-        <select
-          value={luggageSize}
-          onChange={e => setLuggageSize(e.target.value)}
-          className="border rounded px-3 py-2"
-        >
-          <option value="small">Small item only</option>
-          <option value="small-carryon">Small + Carry-On</option>
-          <option value="small-carryon-checked">Small + Carry-On + Checked Luggage</option>
-        </select>
-        <button
-          onClick={handleGetForecast}
-          disabled={loading || !city.trim() || !startDate || !endDate}
-          className="bg-black text-white rounded px-5 py-2"
-        >
-          {loading ? "Loading..." : "Get Forecast"}
-        </button>
+    <main className="min-h-screen bg-gray-50 px-2 pb-8 flex flex-col">
+      {/* Controls */}
+      <div className="sticky top-0 bg-gray-50 z-20 pt-4 pb-2 flex flex-col gap-2">
+        <h1 className="text-xl font-bold mb-1">Weather + Outfit Planner</h1>
+        <div className="flex flex-col gap-2">
+          <Input
+            placeholder="Enter city..."
+            value={city}
+            onChange={e => setCity(e.target.value)}
+            className="rounded-lg text-base"
+          />
+          <div className="flex gap-2">
+            <Input
+              type="date"
+              value={startDate}
+              onChange={e => setStartDate(e.target.value)}
+              min={getTodayDate()}
+              className="rounded-lg text-base"
+            />
+            <Input
+              type="date"
+              value={endDate}
+              onChange={e => setEndDate(e.target.value)}
+              min={startDate || getTodayDate()}
+              className="rounded-lg text-base"
+            />
+          </div>
+          <Select value={luggageSize} onValueChange={setLuggageSize}>
+            <SelectTrigger>
+              <SelectValue placeholder="Luggage size" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="small">Small item only</SelectItem>
+              <SelectItem value="small-carryon">Small + Carry-On</SelectItem>
+              <SelectItem value="small-carryon-checked">Small + Carry-On + Checked Luggage</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button
+            onClick={handleGetForecast}
+            disabled={loading || !city.trim() || !startDate || !endDate}
+            className="w-full bg-black text-white mt-2 rounded-xl py-2"
+          >
+            {loading ? "Loading..." : "Get Forecast"}
+          </Button>
+        </div>
       </div>
-      {/* Only WeatherDisplay. Remove or comment out OutfitRecommendations for now */}
-      <WeatherDisplay
-        weatherData={weatherData}
-        unit={unit}
-        setUnit={setUnit}
-        startDate={startDate}
-        endDate={endDate}
-        luggageSize={luggageSize}
-      />
+
+      {/* Forecast & Packing */}
+      <div className="mt-4 flex flex-col gap-6">
+        <WeatherDisplay
+          weatherData={weatherData}
+          unit={unit}
+          setUnit={setUnit}
+          startDate={startDate}
+          endDate={endDate}
+          luggageSize={luggageSize}
+        />
+      </div>
     </main>
   )
 }
