@@ -3,7 +3,7 @@
 import React from "react"
 
 interface WeatherDisplayProps {
-  weatherData: any[]
+  weatherData: any
   unit: "fahrenheit" | "celsius"
   setUnit: React.Dispatch<React.SetStateAction<"fahrenheit" | "celsius">>
   startDate: string
@@ -11,11 +11,25 @@ interface WeatherDisplayProps {
   luggageSize: string
 }
 
-// Packing rules per luggage size
-const packingRules: Record<string, { tops: number, bottoms: number, jackets: number, shoes: number }> = {
-  "small": { tops: 4, bottoms: 2, jackets: 1, shoes: 1 },
-  "small-carryon": { tops: 6, bottoms: 3, jackets: 2, shoes: 2 },
-  "small-carryon-checked": { tops: 10, bottoms: 4, jackets: 3, shoes: 3 }
+const packingRules: Record<string, any> = {
+  "small": {
+    maxTops: 2,
+    maxBottoms: 1,
+    maxJackets: 1,
+    maxShoes: 1,
+  },
+  "small-carryon": {
+    maxTops: 4,
+    maxBottoms: 2,
+    maxJackets: 1,
+    maxShoes: 2,
+  },
+  "small-carryon-checked": {
+    maxTops: 7,
+    maxBottoms: 3,
+    maxJackets: 2,
+    maxShoes: 3,
+  },
 }
 
 function getWeatherIcon(cond: string) {
@@ -51,7 +65,6 @@ function buildOutfit({ temp, condition, wind }: { temp: number; condition: strin
     : "Sneakers or boots"
 
   const accessories = getAccessories({ condition, wind, temp })
-
   return { top, bottom, shoes, accessories }
 }
 
@@ -76,7 +89,7 @@ export default function WeatherDisplay({
 
   const isFahrenheit = unit === "fahrenheit"
 
-  // Group slots by date (YYYY-MM-DD)
+  // Group by date
   const dailySlots: Record<string, any[]> = {}
   weatherData.forEach((slot: any) => {
     const date = slot.dt_txt.split(" ")[0]
@@ -88,21 +101,7 @@ export default function WeatherDisplay({
     .filter((date) => date >= startDate && date <= endDate)
     .sort()
 
-  // -- Packing List Dynamic by Bag --
-  const rules = packingRules[luggageSize] || packingRules.small
-
-  // For minimum: socks and underwear (1 per day)
-  const essentials = [
-    `${days.length} socks`,
-    `${days.length} underwear`
-  ]
-
-  // Find if any day is rainy (for raincoat)
-  const hasRain = days.some((date) =>
-    [getClosestForecast(dailySlots[date], 14), getClosestForecast(dailySlots[date], 20)]
-      .some(slot => slot.weather[0].main.toLowerCase().includes("rain"))
-  )
-
+  // Helper: Closest forecast per day
   function getClosestForecast(slots: any[], hour: number) {
     return slots.reduce((prev, curr) => {
       const currHour = new Date(curr.dt_txt).getHours()
@@ -111,6 +110,28 @@ export default function WeatherDisplay({
     })
   }
 
+  // ----------- DYNAMIC ESSENTIAL PACKING LIST LOGIC --------------
+  const rules = packingRules[luggageSize] || packingRules["small"]
+
+  // Section 1: Wear on the flight/travel
+  const wearEssentials = [
+    "1 top",
+    "1 bottom",
+    "1 jacket",
+    "1 pair of shoes",
+  ]
+
+  // Section 2: Packing list (the rest, only if max > 1)
+  const packEssentials = [
+    rules.maxTops > 1 ? `Pack ${rules.maxTops - 1} top${rules.maxTops - 1 > 1 ? "s" : ""}` : null,
+    rules.maxBottoms > 1 ? `Pack ${rules.maxBottoms - 1} bottom${rules.maxBottoms - 1 > 1 ? "s" : ""}` : null,
+    rules.maxJackets > 1 ? `Pack ${rules.maxJackets - 1} jacket${rules.maxJackets - 1 > 1 ? "s" : ""}` : null,
+    rules.maxShoes > 1 ? `Pack ${rules.maxShoes - 1} pair${rules.maxShoes - 1 > 1 ? "s" : ""} of shoes` : null,
+    `${days.length} socks (1 per day)`,
+    `${days.length} underwear (1 per day)`,
+  ].filter(Boolean)
+
+  // ------------------- RENDER -------------------
   return (
     <div className="grid gap-8 md:grid-cols-2">
       {/* Forecast & Outfits */}
@@ -119,13 +140,17 @@ export default function WeatherDisplay({
           <h3 className="text-lg font-medium">Forecast</h3>
           <div className="flex gap-2">
             <button
-              className={`rounded px-2 py-1 text-sm font-medium ${isFahrenheit ? "bg-black text-white" : "bg-gray-200 text-gray-800"}`}
+              className={`rounded px-2 py-1 text-sm font-medium ${
+                isFahrenheit ? "bg-black text-white" : "bg-gray-200 text-gray-800"
+              }`}
               onClick={() => setUnit("fahrenheit")}
             >
               °F
             </button>
             <button
-              className={`rounded px-2 py-1 text-sm font-medium ${!isFahrenheit ? "bg-black text-white" : "bg-gray-200 text-gray-800"}`}
+              className={`rounded px-2 py-1 text-sm font-medium ${
+                !isFahrenheit ? "bg-black text-white" : "bg-gray-200 text-gray-800"
+              }`}
               onClick={() => setUnit("celsius")}
             >
               °C
@@ -147,8 +172,11 @@ export default function WeatherDisplay({
             const nightCond = nightSlot.weather[0]?.main.toLowerCase() || "n/a"
             const wind = Math.max(daySlot.wind?.speed || 0, nightSlot.wind?.speed || 0)
 
+            // For summary line/icon:
             const summary = summarizeDay(dayCond, nightCond)
             const icon = getWeatherIcon(dayCond + nightCond)
+
+            // Get outfit details as object
             const outfit = buildOutfit({
               temp: Math.min(dayTemp, nightTemp),
               condition: `${dayCond} ${nightCond}`,
@@ -197,27 +225,29 @@ export default function WeatherDisplay({
         </div>
       </div>
 
-      {/* Packing List */}
+      {/* Essential Packing List */}
       <div className="rounded-xl bg-white p-6 shadow-sm">
-        <h3 className="mb-4 text-lg font-medium">Essential Packing List</h3>
-        <ul className="list-disc pl-6 text-sm">
-          {essentials.map((item, idx) => <li key={idx}>{item}</li>)}
-          <li>
-            <span className="font-semibold">Tops:</span> up to {rules.tops}
-          </li>
-          <li>
-            <span className="font-semibold">Bottoms:</span> up to {rules.bottoms}
-          </li>
-          <li>
-            <span className="font-semibold">Jacket(s):</span> up to {rules.jackets}
-          </li>
-          <li>
-            <span className="font-semibold">Shoes:</span> up to {rules.shoes}
-          </li>
-          {hasRain && <li><span className="font-semibold">Raincoat</span></li>}
-        </ul>
+        <h3 className="mb-2 text-lg font-medium">Essential Packing List</h3>
+        {/* Section 1 */}
+        <div className="mb-3">
+          <div className="font-semibold">Wear on the flight/travel:</div>
+          <ul className="list-disc pl-6 text-sm">
+            {wearEssentials.map((item, idx) => (
+              <li key={`wear-${idx}`}>{item}</li>
+            ))}
+          </ul>
+        </div>
+        {/* Section 2 */}
+        <div>
+          <div className="font-semibold">Packing List:</div>
+          <ul className="list-disc pl-6 text-sm">
+            {packEssentials.map((item, idx) => (
+              <li key={`pack-${idx}`}>{item}</li>
+            ))}
+          </ul>
+        </div>
         <div className="text-xs text-gray-400 mt-3">
-          *Packing list is dynamic and adjusts to your luggage size.
+          Packing list is based on your luggage choice and forecast. The goal is to save room for potential shopping or souvenirs!
         </div>
       </div>
     </div>
