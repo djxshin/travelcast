@@ -3,14 +3,21 @@
 import React from "react"
 
 interface WeatherDisplayProps {
-  weatherData: any
-  unit: string
-  setUnit: (unit: string) => void
+  weatherData: any[]
+  unit: "fahrenheit" | "celsius"
+  setUnit: React.Dispatch<React.SetStateAction<"fahrenheit" | "celsius">>
   startDate: string
   endDate: string
+  luggageSize: string
 }
 
-// Helper to pick an emoji based on weather condition
+// Packing rules per luggage size
+const packingRules: Record<string, { tops: number, bottoms: number, jackets: number, shoes: number }> = {
+  "small": { tops: 4, bottoms: 2, jackets: 1, shoes: 1 },
+  "small-carryon": { tops: 6, bottoms: 3, jackets: 2, shoes: 2 },
+  "small-carryon-checked": { tops: 10, bottoms: 4, jackets: 3, shoes: 3 }
+}
+
 function getWeatherIcon(cond: string) {
   if (cond.includes("rain")) return "🌧️"
   if (cond.includes("cloud")) return "☁️"
@@ -32,21 +39,17 @@ function getAccessories({ condition, wind, temp }: { condition: string; wind: nu
 }
 
 function buildOutfit({ temp, condition, wind }: { temp: number; condition: string; wind: number }) {
-  // Top
   let top = ""
   if (condition.includes("rain")) top = "Raincoat or warm jacket, Tee"
   else if (temp < 55) top = "Warm jacket or hoodie, Tee"
   else if (temp < 68) top = "Light jacket or long sleeve, Tee"
   else top = "Tee or short sleeve"
 
-  // Bottom
   let bottom = temp > 78 ? "Shorts" : "Jeans or pants"
-  // Shoes
   let shoes = condition.includes("rain")
     ? "Waterproof boots or sneakers"
     : "Sneakers or boots"
 
-  // Accessories
   const accessories = getAccessories({ condition, wind, temp })
 
   return { top, bottom, shoes, accessories }
@@ -67,6 +70,7 @@ export default function WeatherDisplay({
   setUnit,
   startDate,
   endDate,
+  luggageSize,
 }: WeatherDisplayProps) {
   if (!Array.isArray(weatherData) || weatherData.length === 0) return null
 
@@ -84,19 +88,20 @@ export default function WeatherDisplay({
     .filter((date) => date >= startDate && date <= endDate)
     .sort()
 
-  // -- Packing List (Minimum Required) --
-  const numDays = days.length
+  // -- Packing List Dynamic by Bag --
+  const rules = packingRules[luggageSize] || packingRules.small
+
+  // For minimum: socks and underwear (1 per day)
+  const essentials = [
+    `${days.length} socks`,
+    `${days.length} underwear`
+  ]
+
+  // Find if any day is rainy (for raincoat)
   const hasRain = days.some((date) =>
     [getClosestForecast(dailySlots[date], 14), getClosestForecast(dailySlots[date], 20)]
       .some(slot => slot.weather[0].main.toLowerCase().includes("rain"))
   )
-  const minPacking = [
-    `${Math.max(1, Math.ceil(numDays * 0.7))} tops`,
-    `${Math.max(1, Math.ceil(numDays / 3))} bottoms`,
-    `1 jacket/hoodie`,
-    hasRain ? "Raincoat" : "",
-    "1–2 pair(s) of shoes",
-  ].filter(Boolean)
 
   function getClosestForecast(slots: any[], hour: number) {
     return slots.reduce((prev, curr) => {
@@ -114,17 +119,13 @@ export default function WeatherDisplay({
           <h3 className="text-lg font-medium">Forecast</h3>
           <div className="flex gap-2">
             <button
-              className={`rounded px-2 py-1 text-sm font-medium ${
-                isFahrenheit ? "bg-black text-white" : "bg-gray-200 text-gray-800"
-              }`}
+              className={`rounded px-2 py-1 text-sm font-medium ${isFahrenheit ? "bg-black text-white" : "bg-gray-200 text-gray-800"}`}
               onClick={() => setUnit("fahrenheit")}
             >
               °F
             </button>
             <button
-              className={`rounded px-2 py-1 text-sm font-medium ${
-                !isFahrenheit ? "bg-black text-white" : "bg-gray-200 text-gray-800"
-              }`}
+              className={`rounded px-2 py-1 text-sm font-medium ${!isFahrenheit ? "bg-black text-white" : "bg-gray-200 text-gray-800"}`}
               onClick={() => setUnit("celsius")}
             >
               °C
@@ -146,11 +147,8 @@ export default function WeatherDisplay({
             const nightCond = nightSlot.weather[0]?.main.toLowerCase() || "n/a"
             const wind = Math.max(daySlot.wind?.speed || 0, nightSlot.wind?.speed || 0)
 
-            // For summary line/icon:
             const summary = summarizeDay(dayCond, nightCond)
             const icon = getWeatherIcon(dayCond + nightCond)
-
-            // Get outfit details as object
             const outfit = buildOutfit({
               temp: Math.min(dayTemp, nightTemp),
               condition: `${dayCond} ${nightCond}`,
@@ -203,12 +201,23 @@ export default function WeatherDisplay({
       <div className="rounded-xl bg-white p-6 shadow-sm">
         <h3 className="mb-4 text-lg font-medium">Essential Packing List</h3>
         <ul className="list-disc pl-6 text-sm">
-          {minPacking.map((item, idx) => (
-            <li key={idx}>{item}</li>
-          ))}
+          {essentials.map((item, idx) => <li key={idx}>{item}</li>)}
+          <li>
+            <span className="font-semibold">Tops:</span> up to {rules.tops}
+          </li>
+          <li>
+            <span className="font-semibold">Bottoms:</span> up to {rules.bottoms}
+          </li>
+          <li>
+            <span className="font-semibold">Jacket(s):</span> up to {rules.jackets}
+          </li>
+          <li>
+            <span className="font-semibold">Shoes:</span> up to {rules.shoes}
+          </li>
+          {hasRain && <li><span className="font-semibold">Raincoat</span></li>}
         </ul>
         <div className="text-xs text-gray-400 mt-3">
-          *Packing list is for minimum essentials. Adjust for your style or longer trips.
+          *Packing list is dynamic and adjusts to your luggage size.
         </div>
       </div>
     </div>
